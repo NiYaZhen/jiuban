@@ -17,12 +17,20 @@ func init() {
 func main() {
 
 	app := iris.New()
+	app.Use(recover.New())
+	//crs := cors.New(cors.Options{
+	//AllowedOrigins:   []string{"*"},
+	//AllowCredentials: true,
+	//AllowedMethods:   []string{"GET", "POST", "DELETE", "PUT"},
+	//AllowedHeaders:   []string{"*"},
+	//})
 	app.Use(Cors)
+	//app.Use(crs)
+	app.AllowMethods(iris.MethodOptions)
 	app.Logger().SetLevel("debug")
 	router.NewRouter(app)
-	app.Use(recover.New())
+
 	app.Use(logger.New())
-	app.AllowMethods(iris.MethodOptions)
 
 	app.Listen(":8080", iris.WithOptimizations)
 
