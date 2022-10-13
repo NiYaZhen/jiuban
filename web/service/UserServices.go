@@ -64,7 +64,7 @@ func (s *userService) Login(ctx iris.Context, email, password string) error {
 	key, hashpassword := s.HashKey(email, password)
 
 	if result.Key == key && result.Password == hashpassword {
-		ctx.WriteString("登入成功\n")
+		ctx.JSON("登入成功")
 	} else {
 		ctx.WriteString("登入失敗 密碼錯誤\n")
 	}
