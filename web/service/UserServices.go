@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"jiuban/model"
 	"jiuban/repo"
+	"log"
+	"net/smtp"
 	"regexp"
 	"strings"
 	"time"
@@ -22,6 +24,9 @@ type UserSerivce interface {
 	Login(ctx iris.Context, email, password string) error
 	Register(ctx iris.Context, email, password, name string) error
 	NewUserId(ctx iris.Context) string
+	ForgotPassword(ctx iris.Context, email string) error
+	SendEmail(body, email string)
+	UpdateSetPassword(ctx iris.Context, email, password string) error
 }
 type userService struct {
 	userRepo repo.UserRepo
@@ -97,8 +102,56 @@ func (s *userService) Register(ctx iris.Context, email, password, name string) e
 
 }
 
+func (s *userService) ForgotPassword(ctx iris.Context, email string) error {
+	_, err := s.userRepo.Get(ctx, email)
+	if err == nil {
+		ctx.WriteString("已寄信")
+		return nil
+	}
+	s.SendEmail("qqq", email)
+
+	return nil
+}
+
+func (s *userService) SendEmail(body, email string) {
+	from := "abcd42822@gmail.com"
+	pass := "vefoatrtwqmbhwbw"
+	to := email
+
+	msg := "From: " + from + "\n" +
+		"To: " + to + "\n" +
+		"Subject: [JiuBan] 忘記密碼重置信\n\n" +
+		"使用者您好 以下為您重置密碼的申請，請點擊連結進到重置密碼的頁面" +
+		"如果您未使用此功能，請忽略此信 謝謝" +
+		body
+
+	err := smtp.SendMail("smtp.gmail.com:587",
+		smtp.PlainAuth("", from, pass, "smtp.gmail.com"),
+		from, []string{to}, []byte(msg))
+
+	if err != nil {
+		log.Printf("smtp error: %s", err)
+		return
+	}
+
+	log.Print("sent, visit http://foobarbazz.mailinator.com")
+}
+
 func (s *userService) NewUserId(ctx iris.Context) string {
 
 	return s.node.Generate().String()
+
+}
+
+func (s *userService) UpdateSetPassword(ctx iris.Context, email, password string) error {
+	user := new(model.User)
+	user.Email = email
+	user.Password = password
+	user.UpdatedAt = time.Now()
+
+	key, hashpassword := s.HashKey(email, password)
+	s.userRepo.Update(ctx, user)
+	s.userRepo.UpdateNewPassword(ctx, email, key, hashpassword)
+	return nil
 
 }
