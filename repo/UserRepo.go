@@ -16,6 +16,7 @@ type UserRepo interface {
 	GetById(ctx iris.Context, userid string) (*model.User, error)
 	Update(ctx iris.Context, user *model.User) error
 	UpdateNewPassword(ctx iris.Context, email, key, hashpassword string) (*model.User, error)
+	GetOtherEmail(ctx iris.Context, otheremail string) (*model.User, error)
 }
 
 type userrepo struct {
@@ -49,6 +50,18 @@ func (r *userrepo) Create(ctx iris.Context, data *model.User) (out *model.User, 
 func (r *userrepo) Get(ctx iris.Context, email string) (*model.User, error) {
 	ans := new(model.User)
 	filter := bson.M{"email": email}
+	if err := db.CUser.FindOne(ctx, filter).Decode(ans); err != nil {
+		return ans, err
+
+	}
+
+	return ans, nil
+
+}
+
+func (r *userrepo) GetOtherEmail(ctx iris.Context, otheremail string) (*model.User, error) {
+	ans := new(model.User)
+	filter := bson.M{"otheremail": otheremail}
 	if err := db.CUser.FindOne(ctx, filter).Decode(ans); err != nil {
 		return ans, err
 

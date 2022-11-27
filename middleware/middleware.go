@@ -11,7 +11,7 @@ import (
 
 var mySecret = []byte("secret")
 
-var j = jwt.New(jwt.Config{
+var J = jwt.New(jwt.Config{
 	ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
 		return mySecret, nil
 	},
@@ -30,8 +30,27 @@ var j = jwt.New(jwt.Config{
 	SigningMethod: jwt.SigningMethodHS256,
 })
 
+var c = jwt.New(jwt.Config{
+	ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
+		return mySecret, nil
+	},
+	Expiration: true,
+	// Extract by the "token" url.
+	// There are plenty of options.
+	// The default jwt's behavior to extract a token value is by
+	// the `Authorization: Bearer $TOKEN` header.
+	Extractor: jwt.FromParameter("token"),
+	// When set, the middleware verifies that tokens are
+	// signed with the specific signing algorithm
+	// If the signing method is not constant the `jwt.Config.ValidationKeyGetter` callback
+	// can be used to implement additional checks
+	// Important to avoid security issues described here:
+	// https://auth0.com/blog/2015/03/31/critical-vulnerabilities-in-json-web-token-libraries/
+	SigningMethod: jwt.SigningMethodHS256,
+})
+
 // generate token to use.
-func GetTokenHandler(ctx iris.Context, email string) {
+func GetTokenHandler(ctx iris.Context, email string) string {
 	var C = db.NewClient()
 
 	now := time.Now()
@@ -63,6 +82,7 @@ func GetTokenHandler(ctx iris.Context, email string) {
 		panic(err)
 	}
 	fmt.Println(val)
+	return tokenString
 
 }
 

@@ -16,6 +16,7 @@ type JiuRepo interface {
 	DeleteById(ctx iris.Context, id string) error
 	Update(ctx iris.Context, id string, in *model.Jiu) error
 	SearchById(ctx iris.Context, id string) (out *model.Jiu, err error)
+	SearchType(ctx iris.Context, searchType string) (out []*model.Jiu, err error)
 }
 
 type jiurepo struct {
@@ -50,6 +51,19 @@ func (r *jiurepo) Create(ctx iris.Context, data *model.Jiu) (out *model.Jiu, err
 func (r *jiurepo) Get(ctx iris.Context) (out []*model.Jiu, err error) {
 
 	cursor, err := db.CJiu.Find(ctx, bson.D{{}})
+
+	var results []*model.Jiu
+	if err := cursor.All(ctx, &results); err != nil {
+
+	}
+
+	return results, nil
+
+}
+
+func (r *jiurepo) SearchType(ctx iris.Context, searchType string) (out []*model.Jiu, err error) {
+	filter := bson.M{"type": searchType}
+	cursor, err := db.CJiu.Find(ctx, filter)
 
 	var results []*model.Jiu
 	if err := cursor.All(ctx, &results); err != nil {

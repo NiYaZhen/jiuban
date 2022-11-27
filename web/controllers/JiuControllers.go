@@ -33,9 +33,6 @@ func (j *jiuController) PostCreateJiu(ctx iris.Context) {
 
 	jius := new(model.Jiu)
 	err := ctx.ReadJSON(&jius)
-	fmt.Println(err)
-
-	fmt.Println(jius)
 
 	insertResult, err := j.jiuService.CreateJiu(ctx, jius)
 	fmt.Println(insertResult)
@@ -110,5 +107,18 @@ func (j *jiuController) PutJoinBy(ctx iris.Context, id string, userid string) {
 	if err != nil {
 		panic(err.Error())
 	}
+
+}
+
+func (j *jiuController) GetTypeJiu(ctx iris.Context) {
+	searchType := new(model.SearchType)
+	err := ctx.ReadJSON(&searchType)
+	insertResult, err := j.jiuService.GetTypeJiu(ctx, searchType)
+
+	if err != nil {
+		panic(err.Error())
+	}
+
+	ctx.JSON(insertResult)
 
 }

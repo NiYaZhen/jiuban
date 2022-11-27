@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"jiuban/middleware"
 	"jiuban/model"
 	"jiuban/repo"
 	"log"
@@ -22,7 +23,7 @@ type UserSerivce interface {
 	VerifyEmail(email string) bool
 	HashKey(account, password string) (key, hashPassword string)
 	Login(ctx iris.Context, email, password string) error
-	Register(ctx iris.Context, email, password, name string) error
+	Register(ctx iris.Context, email, password, name, otherEmail string) error
 	NewUserId(ctx iris.Context) string
 	ForgotPassword(ctx iris.Context, email string) error
 	SendEmail(body, email string)
@@ -63,31 +64,54 @@ func (s *userService) HashKey(account, password string) (key, hashPassword strin
 func (s *userService) Login(ctx iris.Context, email, password string) error {
 	result, err := s.userRepo.Get(ctx, email)
 	if err != nil {
-		ctx.WriteString("沒有此email\n")
+		ctx.JSON(&model.UserViewRes{
+			Err:      1,
+			Emessage: "user signin failed",
+			Message:  "登入失敗，沒有此用戶",
+			Data:     &model.User{},
+		})
 		return err
 	}
 	key, hashpassword := s.HashKey(email, password)
 
 	if result.Key == key && result.Password == hashpassword {
-		ctx.JSON("登入成功")
+		token := middleware.GetTokenHandler(ctx, result.Email)
+		ctx.JSON(&model.UserViewRes{
+			Err:      0,
+			Emessage: "success",
+			Message:  "登入成功",
+			Data:     result,
+			Token:    token,
+		})
 	} else {
-		ctx.WriteString("登入失敗 密碼錯誤\n")
+		ctx.JSON(&model.UserViewRes{
+			Err:      1,
+			Emessage: "user signin failed",
+			Message:  "登入失敗，密碼錯誤",
+			Data:     &model.User{},
+		})
 	}
 
 	return err
 }
 
-func (s *userService) Register(ctx iris.Context, email, password, name string) error {
+func (s *userService) Register(ctx iris.Context, email, password, name, otherEmail string) error {
 	user := new(model.User)
 	user.Email = email
 	user.Password = password
 	user.Name = name
+	user.OtherEmail = otherEmail
 	user.CreatedAt = time.Now()
 	user.Id = s.NewUserId(ctx)
 	_, err := s.userRepo.Get(ctx, email)
 
 	if err == nil {
-		ctx.WriteString("已有此帳戶\n")
+		ctx.JSON(&model.UserViewRes{
+			Err:      1,
+			Emessage: "user signup failed",
+			Message:  "註冊失敗，已有此帳戶",
+			Data:     &model.User{},
+		})
 		return err
 	}
 	checkEmail := s.VerifyEmail(email)
@@ -103,26 +127,26 @@ func (s *userService) Register(ctx iris.Context, email, password, name string) e
 }
 
 func (s *userService) ForgotPassword(ctx iris.Context, email string) error {
-	_, err := s.userRepo.Get(ctx, email)
-	if err == nil {
-		ctx.WriteString("已寄信")
-		return nil
-	}
-	s.SendEmail("qqq", email)
+	// _, err := s.userRepo.Get(ctx, email)
+	// if err == nil {
+	// 	ctx.WriteString("已寄信")
+	// 	return nil
+	// }
+	s.SendEmail("http://172.20.10.7:2000/", email)
 
 	return nil
 }
 
 func (s *userService) SendEmail(body, email string) {
-	from := "abcd42822@gmail.com"
-	pass := "vefoatrtwqmbhwbw"
+	from := "moonapple0902@gmail.com"
+	pass := "tsoisahysrwhaqdk"
 	to := email
 
 	msg := "From: " + from + "\n" +
 		"To: " + to + "\n" +
 		"Subject: [JiuBan] 忘記密碼重置信\n\n" +
-		"使用者您好 以下為您重置密碼的申請，請點擊連結進到重置密碼的頁面" +
-		"如果您未使用此功能，請忽略此信 謝謝" +
+		"使用者您好 以下為您重置密碼的申請，請點擊連結進到重置密碼的頁面\n" +
+		"如果您未使用此功能，請忽略此信 謝謝\n" +
 		body
 
 	err := smtp.SendMail("smtp.gmail.com:587",
@@ -144,14 +168,16 @@ func (s *userService) NewUserId(ctx iris.Context) string {
 }
 
 func (s *userService) UpdateSetPassword(ctx iris.Context, email, password string) error {
-	user := new(model.User)
-	user.Email = email
+	user, err := s.userRepo.GetOtherEmail(ctx, email)
+	if err != nil {
+		return err
+	}
 	user.Password = password
 	user.UpdatedAt = time.Now()
 
-	key, hashpassword := s.HashKey(email, password)
+	key, hashpassword := s.HashKey(user.Email, password)
 	s.userRepo.Update(ctx, user)
-	s.userRepo.UpdateNewPassword(ctx, email, key, hashpassword)
+	s.userRepo.UpdateNewPassword(ctx, user.Email, key, hashpassword)
 	return nil
 
 }

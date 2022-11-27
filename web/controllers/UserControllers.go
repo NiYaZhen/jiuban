@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"jiuban/middleware"
 	"jiuban/model"
 	"jiuban/repo"
 	"jiuban/web/service"
@@ -31,13 +32,33 @@ func (j *userController) PostLogin(ctx iris.Context) {
 	err := ctx.ReadJSON(&user)
 	fmt.Println(err)
 	if user.Email == "" && user.Password == "" {
-		ctx.JSON("輸入點東西啊？\n")
+		ctx.JSON(&model.UserViewRes{
+			Err:      1,
+			Emessage: "user signin failed",
+			Message:  "登入失敗，未輸入資料",
+			Data:     &model.User{},
+		})
 	} else if user.Email == "" {
-		ctx.JSON("沒帳號怎麼登入？\n")
+		ctx.JSON(&model.UserViewRes{
+			Err:      1,
+			Emessage: "user signin failed",
+			Message:  "登入失敗，未輸入電子郵件",
+			Data:     &model.User{},
+		})
 	} else if user.Password == "" {
-		ctx.JSON("你忘了你的密碼了？？\n")
+		ctx.JSON(&model.UserViewRes{
+			Err:      1,
+			Emessage: "user signin failed",
+			Message:  "登入失敗，未輸入密碼",
+			Data:     &model.User{},
+		})
 	} else if j.userService.VerifyEmail(user.Email) == false {
-		ctx.JSON("電子郵件格式錯誤\n")
+		ctx.JSON(&model.UserViewRes{
+			Err:      1,
+			Emessage: "user signin failed",
+			Message:  "登入失敗，電子郵件格式錯誤",
+			Data:     &model.User{},
+		})
 	} else {
 		j.userService.Login(ctx, user.Email, user.Password)
 	}
@@ -49,15 +70,35 @@ func (j *userController) PostRegister(ctx iris.Context) {
 	user := new(model.User)
 	err := ctx.ReadJSON(&user)
 	if user.Email == "" && user.Password == "" {
-		ctx.JSON("輸入點東西啊？\n")
+		ctx.JSON(&model.UserViewRes{
+			Err:      1,
+			Emessage: "user signup failed",
+			Message:  "註冊失敗，未輸入資料",
+			Data:     &model.User{},
+		})
 	} else if user.Email == "" {
-		ctx.JSON("沒帳號怎麼註冊？\n")
+		ctx.JSON(&model.UserViewRes{
+			Err:      1,
+			Emessage: "user signup failed",
+			Message:  "註冊失敗，未輸入電子郵件",
+			Data:     &model.User{},
+		})
 	} else if user.Password == "" {
-		ctx.JSON("你不輸入密碼？？\n")
+		ctx.JSON(&model.UserViewRes{
+			Err:      1,
+			Emessage: "user signup failed",
+			Message:  "註冊失敗，未輸入密碼",
+			Data:     &model.User{},
+		})
 	} else if j.userService.VerifyEmail(user.Email) == false {
-		ctx.JSON("電子郵件格式錯誤\n")
+		ctx.JSON(&model.UserViewRes{
+			Err:      1,
+			Emessage: "user signup failed",
+			Message:  "註冊失敗，電子郵件格式錯誤",
+			Data:     &model.User{},
+		})
 	}
-	err = j.userService.Register(ctx, user.Email, user.Password, user.Name)
+	err = j.userService.Register(ctx, user.Email, user.Password, user.Name, user.OtherEmail)
 
 	if err != nil {
 		panic(err.Error())
@@ -70,11 +111,13 @@ func (j *userController) PostRegister(ctx iris.Context) {
 func (j *userController) PostForgotPassword(ctx iris.Context) {
 
 	user := new(model.User)
+	var token string
 	err := ctx.ReadJSON(&user)
-	if user.Email == "" {
+	if user.OtherEmail == "" {
 		ctx.JSON("沒email怎麼重置密碼？\n")
 	} else {
-		err = j.userService.ForgotPassword(ctx, user.Email)
+		err = j.userService.ForgotPassword(ctx, user.OtherEmail)
+		token = middleware.GetTokenHandler(ctx, user.OtherEmail)
 	}
 
 	if err != nil {
@@ -82,6 +125,7 @@ func (j *userController) PostForgotPassword(ctx iris.Context) {
 	}
 
 	ctx.JSON(user)
+	ctx.JSON(token)
 
 }
 
@@ -89,10 +133,11 @@ func (j *userController) PutSetPassword(ctx iris.Context) {
 
 	user := new(model.User)
 	err := ctx.ReadJSON(&user)
-	if user.Email == "" {
-		ctx.JSON("沒怎麼重置密碼？\n")
+	if user.Password == "" {
+		ctx.JSON("沒新密碼怎麼重置密碼？\n")
 	} else {
-		err = j.userService.UpdateSetPassword(ctx, user.Email, user.Password)
+		email := middleware.AuthToken(ctx)
+		err = j.userService.UpdateSetPassword(ctx, email, user.Password)
 	}
 
 	if err != nil {
